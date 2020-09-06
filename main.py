@@ -55,7 +55,7 @@ def get_prediction(game_time, lucky_time, pct):
     if time_delta == 0:
         return "W"
 
-    # ¯\_(ツ)_/¯
+    # don't ask
     stonks = (float(pct) + (1/(time_delta)))/2
     if random.random() < stonks:
         win = True
