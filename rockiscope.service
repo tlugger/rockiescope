@@ -4,9 +4,10 @@ After=network.target
 
 [Service]
 WorkingDirectory=/home/pi/rockiscope
+EnvironmentFile=/home/pi/rockiscope/twitter.env
 ExecStart=/home/pi/rockiscope/venv/bin/python /home/pi/rockiscope/main.py
 ExecReload=/bin/kill -HUP $MAINPID
-StandardOutput=/home/pi/rockiscope/logs/rockiscope.log
+StandardOutput=file:/home/pi/rockiscope/logs/rockiscope.log
 KillMode=process
 Restart=always
 
