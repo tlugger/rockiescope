@@ -88,21 +88,12 @@ root = logging.getLogger()
 root.setLevel("INFO")
 root.addHandler(handler)
 
-# do bot thing forever
+# make class
 r = Rockiscope()
-okay = False
-# continue trying to make the API
-while not okay:
-    try:
-        r.create_api()
-        okay = True
-        logging.info("Created Tweepy API")
-    except Exception as e:
-        okay = False
-        time.sleep(15)
 
+# do bot thing forever
 while True:
-    time.sleep(5)
+    time.sleep(30)
     now = datetime.now().astimezone(tz.gettz('America/Denver'))
     if now.date() > r.last_day_sent.date():
         if now.hour == r.last_day_sent.hour:
@@ -116,22 +107,35 @@ while True:
                 game_date_mst = game_date.astimezone(tz.gettz('America/Denver'))
                 game_time = game_date_mst.strftime("%I:%M %p")
 
-                home = game['teams']['home']['team']['name']
-                away = game['teams']['away']['team']['name']
-                
-                pct = game['teams']['away']['leagueRecord']['pct']
-                if home == "Colorado Rockies":
-                    pct = game['teams']['home']['leagueRecord']['pct']
+                home_or_away = "home"
+                vs_home_or_away = "away"
+                if game['teams'][home_or_away]['team']['name'] != "Colorado Rockies":
+                    home_or_away = "away"
+                    vs_home_or_away = "home"
 
-                message = "Game Time: {}\n\nHome: {}\nAway: {}".format(game_time, home, away)
+                vs = game['teams'][vs_home_or_away]['team']['name']
+                pct = game['teams'][home_or_away]['leagueRecord']['pct']
+
+                message = "Game Time: {} vs {}".format(game_time, vs)
                 
                 horiscope = r.get_horiscope(ROCKIES_SIGN)
-                message += "\n\nHorisope: {}".format(horiscope['description'])
+                message += "\n\nHoroscope: {}".format(horiscope['description'])
 
                 prediction = r.get_prediction(game_date_mst, horiscope['lucky_time'], pct)
-                message += "\n\nOutcome Prediction: {}".format(prediction)
+                message += "\n\nPrediction: {}".format(prediction)
 
                 logging.info("Sending: {}".format(message))
+
+                okay = False
+                while not okay:
+                    try:
+                        r.create_api()
+                        okay = True
+                        logging.info("Created Tweepy API")
+                        break
+                    except Exception as e:
+                        okay = False
+                        time.sleep(30)
 
                 r.send_tweet(message)
 
