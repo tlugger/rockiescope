@@ -1,13 +1,13 @@
-import requests
-import json
 from datetime import datetime
 from dateutil import tz
+import json
+import logging
 import tweepy
 import os
+import requests
 import random
+import sys
 import time
-import logging
-import logging.handlers
 
 # An official team on July 5th 1991
 ROCKIES_SIGN = "cancer"
@@ -33,16 +33,16 @@ class Rockiscope():
             wait_on_rate_limit_notify=True)
         try:
             self.api.verify_credentials()
-            logging.info("Twitter credentials verified")
+            log.info("Twitter credentials verified")
         except Exception as e:
-            logging.error(e)
+            log.error(e)
             raise e
         return self.api
 
     def send_tweet(self, text):
         status = self.api.update_status(text)
         if status:
-            logging.info("Created new tweet")
+            log.info("Created new tweet")
 
     # Get todays horiscope for provided sign
     def get_horiscope(self, sign):
@@ -77,24 +77,30 @@ class Rockiscope():
         return "W" if win else "L"
 
     def is_pi_time(self, now):
-        if now.hour == 15:
-            if now.minute == 14:
-                if now.second == 15:
-                    return True
-        return False
+        return (now.hour == 15 and now.minute == 14 and now.second == 15)
 
 # create a default with no games
 default_game = {
     "totalGames": 0
 }
 
+
+def setup_logger():
+    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
+                                  datefmt='%Y-%m-%d %H:%M:%S')
+    handler = logging.FileHandler('./logs/rockiscope.log', mode='w')
+    handler.setFormatter(formatter)
+    screen_handler = logging.StreamHandler(stream=sys.stdout)
+    screen_handler.setFormatter(formatter)
+    logger = logging.getLogger('RockiscopeBot')
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    logger.addHandler(screen_handler)
+    return logger
+
+
 # make logging
-handler = logging.handlers.WatchedFileHandler("./logs/rockiscope.log")
-formatter = logging.Formatter(logging.BASIC_FORMAT)
-handler.setFormatter(formatter)
-root = logging.getLogger()
-root.setLevel("INFO")
-root.addHandler(handler)
+log = setup_logger()
 
 # switches
 do_baseball = False
@@ -103,17 +109,25 @@ do_pi_time = True
 # make class
 r = Rockiscope()
 
+# log on start
+log.info("Service started")
+
 # do bot thing forever
 while True:
     now = datetime.now().astimezone(tz.gettz('America/Denver'))
     if now.hour not in [12, 14, 15]:
-        time.sleep(1800)
+        time.sleep(300)
         continue
     if do_pi_time and now.date() > r.last_pi_time_day_sent.date() and r.is_pi_time(now):
+        log.info("Pi Time")
+        try:
+            r.create_api()
+        except Exception as e:
+            log.error(e)
         r.send_tweet("Pi Time")
         r.last_pi_time_day_sent = now
     if do_baseball and now.date() > r.last_baseball_day_sent.date() and now.hour == r.last_baseball_day_sent.hour:
-        logging.info("Ready to Tweet")
+        log.info("Ready to Tweet")
         game_day = r.get_game_data().get('dates', [default_game])[0]
         if game_day['totalGames'] > 0 :
             game = game_day['games'][0]
@@ -140,17 +154,18 @@ while True:
             prediction = r.get_prediction(game_date_mst, horiscope['lucky_time'], pct)
             message += "\n\nPrediction: {}".format(prediction)
 
-            logging.info("Sending: {}".format(message))
+            log.info("Sending: {}".format(message))
 
             okay = False
             while not okay:
                 try:
                     r.create_api()
                     okay = True
-                    logging.info("Created Tweepy API")
+                    log.info("Created Tweepy API")
                     break
                 except Exception as e:
                     okay = False
+                    log.error(e)
                     time.sleep(30)
 
             r.send_tweet(message)
